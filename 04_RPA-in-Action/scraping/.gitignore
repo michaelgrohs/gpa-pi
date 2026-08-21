@@ -1,0 +1,9 @@
+# Instructor solution — not meant to be distributed to students
+sp500_rpa_solution.ipynb
+
+# Generated report output
+output/
+
+# Jupyter / Python housekeeping
+.ipynb_checkpoints/
+__pycache__/
