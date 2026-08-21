@@ -103,9 +103,7 @@ Full keyword reference: https://rpaframework.org/libdoc/RPA_Excel_Files.html
 
 ## Setup
 
-```
-pip install rpaframework yfinance pandas matplotlib tqdm openpyxl
-```
-
-`rpaframework` drives a real Chrome or Firefox browser via Selenium, so one of those needs to
-be installed locally.
+See the [repo-root README](../../README.md), "Python setup" section, for how to create the venv
+and install `requirements.txt` — both live at the repo root (next to
+`02_Business-Process-Automation/`), not in this folder, since they'd apply to any future Python
+module too.
