@@ -1,0 +1,635 @@
+{
+  "name": "Purchase Approval Workflow",
+  "nodes": [
+    {
+      "id": "bd1de52b-8e11-4964-92d1-2e920c59c581",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -360,
+        -180
+      ],
+      "parameters": {
+        "content": "## Purchase Approval Workflow\nAuto-approves small purchase requests and flags larger ones for manager review — instantly, at the moment the request is submitted. No manual checking, no email back-and-forth.\n\n**Test it:** activate the workflow, open the \"Purchase Request Submitted\" node, copy its Production URL, and open that in a browser — it's a real web form. Fill it in and submit.\n\nAmounts at or below the threshold (default $500, set in the next node) are auto-approved; everything above is flagged for manager review.",
+        "height": 340,
+        "width": 380,
+        "color": 6
+      }
+    },
+    {
+      "id": "c3dcdd23-fd9b-4a8f-8333-344bde3ddaa0",
+      "name": "Purchase Request Submitted",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        -360,
+        120
+      ],
+      "webhookId": "5fb191a3-52b6-48dd-8def-f4307429be8a",
+      "parameters": {
+        "formTitle": "Purchase Request",
+        "formDescription": "Submit a purchase request. Requests at or under the auto-approval threshold are approved instantly; larger ones are flagged for manager review.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Employee Name",
+              "fieldName": "employeeName",
+              "fieldType": "text",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Department",
+              "fieldName": "department",
+              "fieldType": "text",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Item",
+              "fieldName": "item",
+              "fieldType": "text",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Amount ($)",
+              "fieldName": "amount",
+              "fieldType": "number",
+              "requiredField": true
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {
+          "path": "purchase-request"
+        }
+      }
+    },
+    {
+      "id": "a20bc066-f23d-4a8a-b9fa-0abe8d9cdda3",
+      "name": "Set Approval Threshold",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -120,
+        120
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "322e85c6-bf00-4b75-8a27-266eb99afdf8",
+              "name": "approvalThreshold",
+              "value": 500,
+              "type": "number"
+            },
+            {
+              "id": "06e44524-efd1-4120-9923-a22eea862838",
+              "name": "amount",
+              "value": "={{ Number($json.amount) }}",
+              "type": "number"
+            },
+            {
+              "id": "e3a1e178-1a2b-4c3d-9e4f-5a6b7c8d9e0f",
+              "name": "employeeName",
+              "value": "={{ $json.employeeName }}",
+              "type": "string"
+            },
+            {
+              "id": "f4b2f289-2b3c-5d4e-af5a-6b7c8d9e0f1a",
+              "name": "department",
+              "value": "={{ $json.department }}",
+              "type": "string"
+            },
+            {
+              "id": "05c3039a-3c4d-6e5f-ba6b-7c8d9e0f1a2b",
+              "name": "item",
+              "value": "={{ $json.item }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      }
+    },
+    {
+      "id": "0c7e650b-8a74-4df9-b81b-7d1d2a61d282",
+      "name": "Amount Within Auto-Approve Limit?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        120,
+        120
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "96176cb9-b7f9-4048-831e-21e66db0620b",
+              "leftValue": "={{ $json.amount }}",
+              "rightValue": "={{ $json.approvalThreshold }}",
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "f6d95a62-4fc5-4a80-a343-6a7a2320b187",
+      "name": "Build Auto-Approval Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        380,
+        -40
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5ab9197c-5762-4021-a30d-0725ed275956",
+              "name": "decision",
+              "value": "approved",
+              "type": "string"
+            },
+            {
+              "id": "d2ac0468-f430-48e7-9814-e521ec99384c",
+              "name": "status",
+              "value": "Auto-Approved",
+              "type": "string"
+            },
+            {
+              "id": "f88d2c4e-642d-412b-9e5c-ed24d90d4e46",
+              "name": "message",
+              "value": "=Approved automatically — within the ${{ $json.approvalThreshold }} auto-approval limit.",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "9a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d",
+      "name": "Log Order (Approved)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        560,
+        -40
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "REPLACE_WITH_YOUR_DATA_TABLE_ID"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "employeeName": "={{ $json.employeeName }}",
+            "department": "={{ $json.department }}",
+            "item": "={{ $json.item }}",
+            "amount": "={{ $json.amount }}",
+            "approvalThreshold": "={{ $json.approvalThreshold }}",
+            "decision": "={{ $json.decision }}",
+            "status": "={{ $json.status }}",
+            "message": "={{ $json.message }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "employeeName",
+              "displayName": "employeeName",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "department",
+              "displayName": "department",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "item",
+              "displayName": "item",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "amount",
+              "displayName": "amount",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "approvalThreshold",
+              "displayName": "approvalThreshold",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "decision",
+              "displayName": "decision",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "3923e2ba-5da6-4050-8a38-f90fbf191d36",
+      "name": "Build Manager Review Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        380,
+        280
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1f04b716-1d2f-41d8-bf4f-c262b1c388d5",
+              "name": "decision",
+              "value": "pending_review",
+              "type": "string"
+            },
+            {
+              "id": "e0043c97-51ec-42e2-b20c-1cc95cf2c53c",
+              "name": "status",
+              "value": "Pending Manager Review",
+              "type": "string"
+            },
+            {
+              "id": "e921b2d7-cf1f-4ecc-977d-d85edf20d27f",
+              "name": "message",
+              "value": "=Exceeds the ${{ $json.approvalThreshold }} auto-approval limit — routed to your manager for review.",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "0b2c3d4e-5f6a-7b8c-9d0e-1f2a3b4c5d6e",
+      "name": "Log Order (Needs Review)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        560,
+        220
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "REPLACE_WITH_YOUR_DATA_TABLE_ID"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "employeeName": "={{ $json.employeeName }}",
+            "department": "={{ $json.department }}",
+            "item": "={{ $json.item }}",
+            "amount": "={{ $json.amount }}",
+            "approvalThreshold": "={{ $json.approvalThreshold }}",
+            "decision": "={{ $json.decision }}",
+            "status": "={{ $json.status }}",
+            "message": "={{ $json.message }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "employeeName",
+              "displayName": "employeeName",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "department",
+              "displayName": "department",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "item",
+              "displayName": "item",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "amount",
+              "displayName": "amount",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "approvalThreshold",
+              "displayName": "approvalThreshold",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "decision",
+              "displayName": "decision",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "1c3d4e5f-6a7b-8c9d-0e1f-2a3b4c5d6e7f",
+      "name": "Email the Boss",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        780,
+        220
+      ],
+      "parameters": {
+        "fromEmail": "purchase-approvals@example.com",
+        "toEmail": "boss@example.com",
+        "subject": "=Purchase request needs review: {{ $json.employeeName }} - ${{ $json.amount }}",
+        "emailFormat": "text",
+        "text": "=A purchase request needs your review.\n\nEmployee: {{ $json.employeeName }}\nDepartment: {{ $json.department }}\nItem: {{ $json.item }}\nAmount: ${{ $json.amount }}\nAuto-approval limit: ${{ $json.approvalThreshold }}\n\n{{ $json.message }}",
+        "options": {}
+      },
+      "credentials": {
+        "smtp": {
+          "id": "REPLACE_WITH_YOUR_SMTP_CREDENTIAL_ID",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "id": "6b1c2d3e-4f5a-6b7c-8d9e-0f1a2b3c4d5e",
+      "name": "Approval Confirmation Page",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        780,
+        -40
+      ],
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "text",
+        "completionTitle": "={{ $json.status }}",
+        "completionMessage": "={{ $json.message }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "7c2d3e4f-5a6b-7c8d-9e0f-1a2b3c4d5e6f",
+      "name": "Review Confirmation Page",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        1000,
+        220
+      ],
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "text",
+        "completionTitle": "={{ $json.status }}",
+        "completionMessage": "={{ $json.message }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "8f4e4730-1c38-434f-82c2-2a96c7053b3b",
+      "name": "Extend here",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        780,
+        400
+      ],
+      "parameters": {
+        "content": "### Extend here\nThis is where else you could grow the workflow: notify via Slack/Teams instead of (or in addition to) email, escalate if unreviewed after N hours, or add a second approval tier for very large amounts.",
+        "height": 200,
+        "width": 280,
+        "color": 5
+      }
+    }
+  ],
+  "connections": {
+    "Purchase Request Submitted": {
+      "main": [
+        [
+          {
+            "node": "Set Approval Threshold",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Approval Threshold": {
+      "main": [
+        [
+          {
+            "node": "Amount Within Auto-Approve Limit?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Amount Within Auto-Approve Limit?": {
+      "main": [
+        [
+          {
+            "node": "Build Auto-Approval Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Manager Review Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Auto-Approval Response": {
+      "main": [
+        [
+          {
+            "node": "Log Order (Approved)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Manager Review Response": {
+      "main": [
+        [
+          {
+            "node": "Log Order (Needs Review)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Order (Approved)": {
+      "main": [
+        [
+          {
+            "node": "Approval Confirmation Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Order (Needs Review)": {
+      "main": [
+        [
+          {
+            "node": "Email the Boss",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email the Boss": {
+      "main": [
+        [
+          {
+            "node": "Review Confirmation Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

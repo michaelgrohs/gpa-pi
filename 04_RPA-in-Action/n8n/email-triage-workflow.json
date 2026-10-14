@@ -1,0 +1,380 @@
+{
+  "name": "AI Email Triage Workflow",
+  "nodes": [
+    {
+      "id": "a1",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        -260
+      ],
+      "parameters": {
+        "content": "## AI Email Triage Workflow\nA customer email arrives, a local AI model (Ollama — free, runs on your machine, no API key) classifies it as Sales, Support, or Billing, and every decision is logged for visibility. No manual reading, no guessing.\n\n**Setup required before this works** (see README):\n1. Point \"Customer Email Received\" at a real mailbox (IMAP credentials).\n2. Point \"Local Model (Ollama)\" at your local Ollama credential.\n3. Create the \"Customer Emails\" Data Table and repoint the \"Log Email\" node at it.\n\n**Known limitation:** local models are not perfectly reliable at strict single-category classification — in testing, borderline emails occasionally matched more than one category. See README → 'Known limitations'.",
+        "height": 420,
+        "width": 420,
+        "color": 6
+      }
+    },
+    {
+      "id": "a2",
+      "name": "Customer Email Received",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.2,
+      "position": [
+        -560,
+        220
+      ],
+      "parameters": {
+        "mailbox": "INBOX",
+        "postProcessAction": "read",
+        "downloadAttachments": false,
+        "format": "simple",
+        "options": {}
+      },
+      "credentials": {
+        "imap": {
+          "id": "REPLACE_WITH_YOUR_IMAP_CREDENTIAL_ID",
+          "name": "IMAP account"
+        }
+      }
+    },
+    {
+      "id": "a3",
+      "name": "Classify Department",
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1.1,
+      "position": [
+        -280,
+        220
+      ],
+      "parameters": {
+        "inputText": "=Subject: {{ $json.subject }}\n\n{{ $json.textPlain }}",
+        "categories": {
+          "categories": [
+            {
+              "category": "Sales",
+              "description": "Questions about pricing, purchasing, product demos, or interest in buying."
+            },
+            {
+              "category": "Support",
+              "description": "Technical issues, bugs, how-to help, or trouble using the product."
+            },
+            {
+              "category": "Billing",
+              "description": "Questions about invoices, payments, refunds, subscription charges, or account billing."
+            }
+          ]
+        },
+        "options": {
+          "fallback": "other"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "a4",
+      "name": "Local Model (Ollama)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        -280,
+        460
+      ],
+      "parameters": {
+        "model": "llama3.1:8b",
+        "options": {}
+      },
+      "credentials": {
+        "ollamaApi": {
+          "id": "REPLACE_WITH_YOUR_OLLAMA_CREDENTIAL_ID",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "id": "b0",
+      "name": "Tag: Sales",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        40,
+        -160
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "dep0",
+              "name": "department",
+              "value": "Sales",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "b1",
+      "name": "Tag: Support",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        40,
+        0
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "dep1",
+              "name": "department",
+              "value": "Support",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "b2",
+      "name": "Tag: Billing",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        40,
+        160
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "dep2",
+              "name": "department",
+              "value": "Billing",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "b3",
+      "name": "Tag: Other",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        40,
+        320
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "dep3",
+              "name": "department",
+              "value": "Other / Needs Manual Review",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "c1",
+      "name": "Log Email",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        320,
+        60
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "REPLACE_WITH_YOUR_DATA_TABLE_ID"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "from": "={{ $json.from }}",
+            "subject": "={{ $json.subject }}",
+            "department": "={{ $json.error ? 'Unclassified (AI parse error)' : $json.department }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "from",
+              "displayName": "from",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "subject",
+              "displayName": "subject",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "department",
+              "displayName": "department",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "d1",
+      "name": "Extend here",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        560,
+        60
+      ],
+      "parameters": {
+        "content": "### Extend here\nAfter \"Log Email\", branch further per department: forward the email (Send Email node), post to that team's Slack/Teams channel, or create a ticket in your helpdesk tool. Left as a log-only step so this runs with minimal setup.",
+        "height": 200,
+        "width": 280,
+        "color": 5
+      }
+    }
+  ],
+  "connections": {
+    "Customer Email Received": {
+      "main": [
+        [
+          {
+            "node": "Classify Department",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Local Model (Ollama)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Classify Department",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Department": {
+      "main": [
+        [
+          {
+            "node": "Tag: Sales",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tag: Support",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tag: Billing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tag: Other",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag: Sales": {
+      "main": [
+        [
+          {
+            "node": "Log Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag: Support": {
+      "main": [
+        [
+          {
+            "node": "Log Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag: Billing": {
+      "main": [
+        [
+          {
+            "node": "Log Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag: Other": {
+      "main": [
+        [
+          {
+            "node": "Log Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
